@@ -227,7 +227,7 @@ def fusion_flash_attention(
             if config.context_parallel_degree > 1:
                 raise ValueError("Context parallel is not implemented for intel_hpu")
             scaling_factor = query_states.shape[3] ** -0.5
-            attention_mask = attention_mask.astype("bfloat16")
+            attention_mask = attention_mask.astype(query_states.dtype)
             attn_output = paddle.incubate.nn.functional.fused_dot_product_attention(
                 query_states,
                 key_states,

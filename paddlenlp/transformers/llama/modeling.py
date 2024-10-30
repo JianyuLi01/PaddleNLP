@@ -249,6 +249,7 @@ def scaled_dot_product_attention(
 
         # matmul and devide by sqrt(head_dim)
         if get_env_device() == "intel_hpu":
+            # optimize div(const) to mul(const) for better performance
             attn_weights = paddle.matmul(query_states * (1 / math.sqrt(head_dim)), key_states.transpose([0, 1, 3, 2]))
         else:
             attn_weights = paddle.matmul(query_states / math.sqrt(head_dim), key_states.transpose([0, 1, 3, 2]))
