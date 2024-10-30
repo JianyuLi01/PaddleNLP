@@ -14,7 +14,7 @@
 
 set -ex
 
-export LOG_LEVEL_ALL=0
+# export LOG_LEVEL_ALL=0
 export HABANA_LOGS=./logs
 
 # export HCCL_COMM_ID=127.0.0.1:5555
