@@ -38,8 +38,40 @@ function is_a100() {
 
 IS_A100=$(is_a100)
 
+function track_case_status() {  
+    local case_name="$1"  
+    local prefix="$2"  
+    local original_path  
+  
+    original_path=$(pwd)  
+    cd ${log_path} || { echo "Failed to enter log_path: $log_path"; return 1; }  
+  
+    total_count=$(ls -1 "$prefix"* 2>/dev/null | grep -Ev 'result\.log|functions\.txt' | wc -l)
+    run_fail_count=$(ls -1 "$prefix"*_FAIL* 2>/dev/null | wc -l)  
+    loss_fail_count=$(grep 'check failed! ' result.log | awk -v prefix="$prefix" '{if ($2 ~ "^" prefix) print $2}'| wc -l)
+    
+    echo -e "\033[31m ---- $case_name total tests :  $total_count \033"
+    if [ $run_fail_count -eq 0 ] && [ $loss_fail_count  -eq 0 ]; then
+        echo -e "\033[32m ---- all cases Success  \033"
+    else
+        if [[ $run_fail_count -ne 0 ]] ; then
+            echo -e "\033[31m ---- $case_name runtime failed test  :  $run_fail_count \033"
+            ls -1 "$prefix"*_FAIL* 2>/dev/null | awk -v OFS="\t" '{print "\t" $0 "(failed)"}'
+        fi
+        if [[ $loss_fail_count -ne 0 ]] ; then
+            echo -e "\033[31m ---- $case_name verification failed test  :  $loss_fail_count \033"
+            grep 'check failed! ' result.log | awk -v prefix="$prefix" 'BEGIN {OFS="\t"} {if ($2 ~ "^" prefix) print "\t" $2 "(failed)"}'
+        fi
+        return 2
+    fi
+    cd "$original_path" || { echo "Failed to return to original path: $original_path"; return 1; }  
+    return 0
+}
+
 # NOTE: Please place the new tests as much as possible after the existing tests
 function llama_case_list_auto() {
+    # The test name must have "llama_" as a prefix, which will 
+    # be used for tracking the execution status of the case.
     llama_dygraph_auto_bs8_fp32_DP2
     llama_dygraph_auto_bs8_fp32_DP2-MP2
     llama_dygraph_auto_bs8_fp32_DP2-MP2-PP2
@@ -55,26 +87,38 @@ function llama_case_list_auto() {
     llama_align_dygraph_dy2st_pir_auto_grad_merge_bs2_fp32_DP1-MP1-PP1
     llama_align_dy2st_fthenb_and_vpp_auto_bs2_fp32_DP1-MP1-PP4
     llama_align_dygraph_dy2st_pir_auto_pp_bs2_bf16_DP1-MP1-PP4
+
+    track_case_status $FUNCNAME "llama_"
 }
 
 function llm_gpt_case_list_auto() {
+    # The test name must have "llm_gpt_dygraph_auto_" as a prefix, 
+    # which will be used for tracking the execution status of the case.
     llm_gpt_dygraph_auto_bs8_fp32_DP2
     llm_gpt_dygraph_auto_bs8_fp32_DP2-MP2
     llm_gpt_dygraph_auto_bs8_fp32_DP2-MP2-PP2
     llm_gpt_dygraph_auto_bs8_fp16_DP2-MP2-PP2
+
+    track_case_status $FUNCNAME "llm_gpt_dygraph_auto_"
 }
 
 function llm_qwen_case_list_auto() {
+    # The test name must have "llm_qwen_dygraph_auto_" as a prefix, 
+    # which will be used for tracking the execution status of the case.
     llm_qwen_dygraph_auto_bs1_fp32_DP2
     llm_qwen_dygraph_auto_bs1_fp32_DP2-MP2
     llm_qwen_dygraph_auto_bs1_fp32_DP2-MP2-PP2
     llm_qwen_dygraph_auto_bs1_bf16_DP2-MP2-PP2
+
+    track_case_status $FUNCNAME "llm_qwen_dygraph_auto_"
 }
 
 ############ case start ############
 
 function llama_dygraph_auto_bs8_fp32_DP2() {
     echo "=========== $FUNCNAME run begin ==========="
+    export_env
+    cd ${llama_case_path}
     export PYTHONPATH=$root_path/:$PYTHONPATH
     export FLAGS_call_stack_level=3
     export NVIDIA_TF32_OVERRIDE=0
@@ -145,6 +189,8 @@ function llama_dygraph_auto_bs8_fp32_DP2() {
 
 function llama_dygraph_auto_bs8_fp32_DP2-MP2() {
     echo "=========== $FUNCNAME run begin ==========="
+    export_env
+    cd ${llama_case_path}
     export PYTHONPATH=$root_path/:$PYTHONPATH
     export FLAGS_call_stack_level=3
     export NVIDIA_TF32_OVERRIDE=0
@@ -215,6 +261,8 @@ function llama_dygraph_auto_bs8_fp32_DP2-MP2() {
 
 function llama_dygraph_auto_bs8_fp32_DP2-MP2-PP2() {
     echo "=========== $FUNCNAME run begin ==========="
+    export_env
+    cd ${llama_case_path}
     export PYTHONPATH=$root_path/:$PYTHONPATH
     export FLAGS_call_stack_level=3
     export NVIDIA_TF32_OVERRIDE=0
@@ -285,6 +333,8 @@ function llama_dygraph_auto_bs8_fp32_DP2-MP2-PP2() {
 
 function llama_dygraph_auto_bs8_fp16_DP2-MP2-PP2() {
     echo "=========== $FUNCNAME run begin ==========="
+    export_env
+    cd ${llama_case_path}
     export PYTHONPATH=$root_path/:$PYTHONPATH
     export FLAGS_call_stack_level=3
     export NVIDIA_TF32_OVERRIDE=0
@@ -359,6 +409,8 @@ function llama_dy2st_auto_bs4_bf16_DP1-MP1-PP4-SD2() {
     echo IS_A100 is $IS_A100
     if [ $IS_A100 -ne 0 ]; then
         echo "=========== $FUNCNAME run begin ==========="
+        export_env
+        cd ${llama_case_path}
         export PYTHONPATH=$root_path/:$PYTHONPATH
         export FLAGS_call_stack_level=3
         export NVIDIA_TF32_OVERRIDE=0
@@ -458,6 +510,8 @@ function llama_dy2st_auto_bs4_bf16_DP1-MP1-PP4-SD2-VPP3_split_bw() {
     echo IS_A100 is $IS_A100
     if [ $IS_A100 -ne 0 ]; then
         echo "=========== $FUNCNAME run begin ==========="
+        export_env
+        cd ${llama_case_path}
         export PYTHONPATH=$root_path/:$PYTHONPATH
         export FLAGS_call_stack_level=3
         export NVIDIA_TF32_OVERRIDE=0
@@ -467,7 +521,7 @@ function llama_dy2st_auto_bs4_bf16_DP1-MP1-PP4-SD2-VPP3_split_bw() {
 
         export CUDA_DEVICE_MAX_CONNECTIONS=1
         export PARALLEL_CROSS_ENTROPY=true
-        export FLAGS_enable_pir_api=False # 暂时disable pir，后期修复后打开 @卢畅
+        export FLAGS_enable_pir_api=True # 功能已经实现并监控，具体显存数值对齐 @卢畅
 
         task_name="llama_dy2st_auto_bs4_bf16_DP1-MP1-PP4-SD2-VPP3_split_bw"
         case_out_dir="output/$task_name"
@@ -545,9 +599,9 @@ function llama_dy2st_auto_bs4_bf16_DP1-MP1-PP4-SD2-VPP3_split_bw() {
         ips=`cat $case_log_dir/workerlog.0 | grep 'global_step: 30' | awk -F 'interval_tokens_per_second_per_device: ' '{print $2}' | awk -F ',' '{print $1}'`
         mem=`cat $case_log_dir/workerlog.0 | grep 'global_step: 30' | awk -F 'max_memory_reserved: ' '{print $2}' | awk -F ',' '{print $1}'`
         echo "result: loss=$loss ips=$ips mem=$mem"
-        loss_base=7.54158936
-        ips_base=5864.2898
-        mem_base=23.745134115219116
+        loss_base=7.54568558 # record new data
+        ips_base=-1
+        mem_base=-1
         check_result $FUNCNAME ${loss_base} ${loss} ${ips_base} ${ips} ${mem_base} ${mem}
         echo "=========== $FUNCNAME run  end ==========="  
     fi
@@ -555,6 +609,8 @@ function llama_dy2st_auto_bs4_bf16_DP1-MP1-PP4-SD2-VPP3_split_bw() {
 
 function llama_align_dygraph_dy2st_pir_auto_bs2_bf16_DP2-MP2-PP1-SP() {
     echo "=========== $FUNCNAME run begin ==========="
+    export_env
+    cd ${llama_case_path}
     export PYTHONPATH=$root_path/:$PYTHONPATH
     export PYTHONPATH=/paddle/Paddle/build_gpu/python/:$PYTHONPATH
     export FLAGS_call_stack_level=3
@@ -649,6 +705,8 @@ function llama_align_dygraph_dy2st_pir_auto_bs2_bf16_DP2-MP2-PP1-SP() {
 
 function llama_pir_auto_fuse_ffn_attention_qkv_MP2() {
     echo "=========== $FUNCNAME run begin ==========="
+    export_env
+    cd ${llama_case_path}
     export PYTHONPATH=$root_path/:$PYTHONPATH
     export FLAGS_call_stack_level=3
     export FLAGS_max_inplace_grad_add=100
@@ -745,6 +803,8 @@ function llama_pir_auto_fuse_ffn_attention_qkv_MP2() {
 
 function llama_align_dygraph_dy2st_pir_auto_bs2_bf16_DP2-MP2-PP2-SP() {
     echo "=========== $FUNCNAME run begin ==========="
+    export_env
+    cd ${llama_case_path}
     export PYTHONPATH=$root_path/:$PYTHONPATH
     export PYTHONPATH=/paddle/Paddle/build_gpu/python/:$PYTHONPATH
     export FLAGS_call_stack_level=3
@@ -840,6 +900,8 @@ function llama_align_dygraph_dy2st_pir_auto_bs2_bf16_DP2-MP2-PP2-SP() {
 
 function llama_align_dygraph_dy2st_auto_bs2_bf16_DP2-MP1-PP1() {
     echo "=========== $FUNCNAME run begin ==========="
+    export_env
+    cd ${llama_case_path}
     export PYTHONPATH=$root_path/:$PYTHONPATH
     export FLAGS_call_stack_level=3
     export NVIDIA_TF32_OVERRIDE=0
@@ -932,6 +994,9 @@ function llama_align_dygraph_dy2st_auto_bs2_bf16_DP2-MP1-PP1() {
 
 function llama_align_dygraph_dy2st_pir_auto_grad_merge_bs2_fp32_DP1-MP1-PP1() {
     echo "=========== $FUNCNAME run begin ==========="
+    export_env
+    cd ${llama_case_path}
+    export PYTHONPATH=$root_path/:$PYTHONPATH
     export FLAGS_call_stack_level=3
     export NVIDIA_TF32_OVERRIDE=0
     export FLAGS_max_inplace_grad_add=3
@@ -1030,6 +1095,9 @@ function llama_align_dygraph_dy2st_pir_auto_grad_merge_bs2_fp32_DP1-MP1-PP1() {
 
 function llama_align_dy2st_fthenb_and_vpp_auto_bs2_fp32_DP1-MP1-PP4() {
     echo "=========== $FUNCNAME run begin ==========="
+    export_env
+    cd ${llama_case_path}
+    export PYTHONPATH=$root_path/:$PYTHONPATH
     # Only A100 support this case.
     if [ $IS_A100 -ne 0 ]; then
         export FLAGS_call_stack_level=3
@@ -1138,6 +1206,9 @@ function llama_align_dy2st_fthenb_and_vpp_auto_bs2_fp32_DP1-MP1-PP4() {
 
 function llama_align_dygraph_dy2st_pir_auto_pp_bs2_bf16_DP1-MP1-PP4() {
     echo "=========== $FUNCNAME run begin ==========="
+    export_env
+    cd ${llama_case_path}
+    export PYTHONPATH=$root_path/:$PYTHONPATH
     export FLAGS_call_stack_level=3
     export NVIDIA_TF32_OVERRIDE=0
     export FLAGS_max_inplace_grad_add=3
@@ -1244,6 +1315,8 @@ function llama_align_dygraph_dy2st_pir_auto_pp_bs2_bf16_DP1-MP1-PP4() {
 
 function llama_convert_hybrid_ckpt_to_auto_parallel_bs2_fp32_DP2-MP1-PP1() {
     echo "=========== $FUNCNAME run begin ==========="
+    export_env
+    cd ${llama_case_path}
     export PYTHONPATH=$root_path/:$PYTHONPATH
     export FLAGS_call_stack_level=3
     export NVIDIA_TF32_OVERRIDE=0
@@ -1403,6 +1476,8 @@ function llama_convert_hybrid_ckpt_to_auto_parallel_bs2_fp32_DP2-MP1-PP1() {
 
 function llm_gpt_dygraph_auto_bs8_fp32_DP2() {
     echo "=========== $FUNCNAME run begin ==========="
+    export_env
+    cd ${gpt_case_path}
     export PYTHONPATH=$root_path/:$PYTHONPATH
     export FLAGS_call_stack_level=3
     export NVIDIA_TF32_OVERRIDE=0
@@ -1473,6 +1548,8 @@ function llm_gpt_dygraph_auto_bs8_fp32_DP2() {
 
 function llm_gpt_dygraph_auto_bs8_fp32_DP2-MP2() {
     echo "=========== $FUNCNAME run begin ==========="
+    export_env
+    cd ${gpt_case_path}
     export PYTHONPATH=$root_path/:$PYTHONPATH
     export FLAGS_call_stack_level=3
     export NVIDIA_TF32_OVERRIDE=0
@@ -1545,6 +1622,8 @@ function llm_gpt_dygraph_auto_bs8_fp32_DP2-MP2() {
 
 function llm_gpt_dygraph_auto_bs8_fp32_DP2-MP2-PP2() {
     echo "=========== $FUNCNAME run begin ==========="
+    export_env
+    cd ${gpt_case_path}
     export PYTHONPATH=$root_path/:$PYTHONPATH
     export FLAGS_call_stack_level=3
     export NVIDIA_TF32_OVERRIDE=0
@@ -1618,6 +1697,8 @@ function llm_gpt_dygraph_auto_bs8_fp32_DP2-MP2-PP2() {
 
 function llm_gpt_dygraph_auto_bs8_fp16_DP2-MP2-PP2() {
     echo "=========== $FUNCNAME run begin ==========="
+    export_env
+    cd ${gpt_case_path}
     export PYTHONPATH=$root_path/:$PYTHONPATH
     export FLAGS_call_stack_level=3
     export NVIDIA_TF32_OVERRIDE=0
@@ -1691,6 +1772,8 @@ function llm_gpt_dygraph_auto_bs8_fp16_DP2-MP2-PP2() {
 }
 
 function llm_qwen_dygraph_auto_bs1_fp32_DP2() {
+    export_env
+    cd ${gpt_case_path}
     set -x
 
     config_json="pretrain_argument_for_ci_auto_dp2.json"
@@ -1784,6 +1867,8 @@ EOF
 }
 
 function llm_qwen_dygraph_auto_bs1_fp32_DP2-MP2() {
+    export_env
+    cd ${gpt_case_path}
     set -x
 
     config_json="pretrain_argument_for_ci_auto_dp2_mp2.json"
@@ -1877,6 +1962,8 @@ EOF
 }
 
 function llm_qwen_dygraph_auto_bs1_fp32_DP2-MP2-PP2() {
+    export_env
+    cd ${gpt_case_path}
     set -x
 
     config_json="pretrain_argument_for_ci_auto_dp2_mp2_pp2.json"
@@ -1970,6 +2057,8 @@ EOF
 }
 
 function llm_qwen_dygraph_auto_bs1_bf16_DP2-MP2-PP2() {
+    export_env
+    cd ${gpt_case_path}
     set -x
 
     config_json="pretrain_argument_for_ci_auto_dp2_mp2_pp2.json"
@@ -2083,12 +2172,12 @@ function check_result() {
     echo -e "$1" >> ${log_path}/result.log
     if [ $? -ne 0 ];then
         echo -e "\033[31m $1 run failed! \033[0m" | tee -a ${log_path}/result.log
-        exit -1
+        exit 2
     fi
 
     if [ $# -ne 7 ] && [ $# -ne 8 ]; then
         echo -e "\033[31m $1 parameter transfer failed: $@ \033[0m" | tee -a ${log_path}/result.log
-        exit -1
+        exit 2
     fi
 
     diff_loss=$(echo $2 $3|awk '{printf "%0.2f\n", ($2-$1)/$1*100}')
@@ -2096,13 +2185,13 @@ function check_result() {
     if [ $2 != $3 ];then
         if [ -z "$8" ] || [ $8 -ne 1 ] ;then
             echo -e "\033[31m $1 loss diff check failed! \033[0m" | tee -a ${log_path}/result.log
-            exit -1
+            exit 2
         else
             diff=$(echo "$2 $3" | awk '{print $1-$2}')
             gt=$(echo "${diff#-} 1e-5" | awk '{print ($1>$2)?"1":"0"}')
             if [ $gt -eq 1 ];then
                 echo -e "\033[31m $1 loss diff check failed! \033[0m" | tee -a ${log_path}/result.log
-                exit -1
+                exit 2
             fi
         fi
     fi
@@ -2116,7 +2205,7 @@ function check_result() {
     fi
     if [[ $v2 == 0 ]];then
         echo -e "\033[31m $1 IPS diff check failed! \033[0m" | tee -a $log_path/result.log
-        exit -1
+        exit 2
     fi
 
     diff_mem=$(echo $6 $7|awk '{printf "%0.2f\n", ($2-$1)/$1*100}')
@@ -2125,7 +2214,7 @@ function check_result() {
     w2=$(echo $diff_mem -5.0|awk '{print($1<=$2)?"0":"1"}')
     if [[ $w1 == 0 ]];then
         echo -e "\033[31m $1 MEM diff check failed! \033[0m" | tee -a $log_path/result.log
-        exit -1
+        exit 2
     fi
     if [[ $w2 == 0 ]];then
         echo -e "$1 MEM decreases greater than 5%, not exit " | tee -a $log_path/result.log
@@ -2134,6 +2223,7 @@ function check_result() {
 
 function before_hook_for_gpt() {
     echo -e "\033[31m ---- Set FLAGS for GPT auto cases  \033[0m"
+    cd ${gpt_case_path}
     export FLAGS_new_executor_micro_batching=True  # True：打开新执行器
     export FLAGS_embedding_deterministic=1         # 1：关闭随机性
     export FLAGS_cudnn_deterministic=1             # 1：关闭随机性
@@ -2173,8 +2263,21 @@ function before_hook_for_gpt() {
     fi
 }
 
+function export_env() {
+    export FLAGS_new_executor_micro_batching=True  # True：打开新执行器
+    export FLAGS_embedding_deterministic=1         # 1：关闭随机性
+    export FLAGS_cudnn_deterministic=1             # 1：关闭随机性
+    export FLAGS_program_topo_reorder=1            # 1: 反向对齐动手拓扑排序
+    unset CUDA_MODULE_LOADING
+    env | grep FLAGS
+    export http_proxy=${proxy}
+    export https_proxy=${proxy}
+    export no_proxy=bcebos.com
+}
+
 function before_hook_for_llama() {
     echo -e "\033[31m ---- Set FLAGS for LLaMA auto cases  \033[0m"
+    cd ${llama_case_path}
     export FLAGS_new_executor_micro_batching=True  # True：打开新执行器
     export FLAGS_embedding_deterministic=1         # 1：关闭随机性
     export FLAGS_cudnn_deterministic=1             # 1：关闭随机性
@@ -2203,19 +2306,81 @@ function before_hook_for_llama() {
     fi
 }
 
-echo -e "\033[31m ---- Start executing $1 \033[0m"
-export exec_case=$1
-export FLAGS_install_deps=$2
-export FLAGS_download_data=$3
+function restore_func() {
+    fun_list=$1
+    cd ${log_path} || { echo "Failed to enter log_path: $log_path"; return 1; } 
+    if [ -e "functions.txt" ]; then
+        rm "functions.txt"
+        echo "Deleted existing functions.txt"
+    fi
+    for function in ${fun_list[@]};do
+        echo "$function" >> functions.txt
+    done
+}
 
-if [[ $exec_case =~ "gpt" ]];then
-    cd ${gpt_case_path}
-    before_hook_for_gpt
-elif [[ $exec_case =~ "llama" ]];then
-    cd ${llama_case_path}
-    before_hook_for_llama
+function restore_llama_case_list_auto_func() {
+    fun_list=(
+        llama_dygraph_auto_bs8_fp32_DP2
+        llama_dygraph_auto_bs8_fp32_DP2-MP2
+        llama_dygraph_auto_bs8_fp32_DP2-MP2-PP2
+        llama_dygraph_auto_bs8_fp16_DP2-MP2-PP2
+        llama_dy2st_auto_bs4_bf16_DP1-MP1-PP4-SD2-VPP3_split_bw
+        llama_dy2st_auto_bs4_bf16_DP1-MP1-PP4-SD2
+        llama_align_dygraph_dy2st_auto_bs2_bf16_DP2-MP1-PP1
+        llama_pir_auto_fuse_ffn_attention_qkv_MP2
+        llama_convert_hybrid_ckpt_to_auto_parallel_bs2_fp32_DP2-MP1-PP1
+        llama_align_dygraph_dy2st_pir_auto_bs2_bf16_DP2-MP2-PP1-SP
+        llama_align_dygraph_dy2st_pir_auto_bs2_bf16_DP2-MP2-PP2-SP
+        llama_align_dygraph_dy2st_pir_auto_grad_merge_bs2_fp32_DP1-MP1-PP1
+        llama_align_dy2st_fthenb_and_vpp_auto_bs2_fp32_DP1-MP1-PP4
+        llama_align_dygraph_dy2st_pir_auto_pp_bs2_bf16_DP1-MP1-PP4
+    )
+    restore_func $fun_list
+}
+
+function restore_llm_gpt_case_list_auto_func() {
+    fun_list=(
+        llm_gpt_dygraph_auto_bs8_fp32_DP2
+        llm_gpt_dygraph_auto_bs8_fp32_DP2-MP2
+        llm_gpt_dygraph_auto_bs8_fp32_DP2-MP2-PP2
+        llm_gpt_dygraph_auto_bs8_fp16_DP2-MP2-PP2
+    )
+    restore_func $fun_list  
+}
+
+
+
+
+export status=$1
+if [[ $status = "prepare_case" ]];then
+    export FLAGS_install_deps=$3
+    export FLAGS_download_data=$4
+    if [[ $2 = "llama_case_list_auto" ]];then
+        before_hook_for_llama
+        restore_llama_case_list_auto_func
+    elif [[ $2 = "llm_gpt_case_list_auto" ]];then
+        before_hook_for_gpt
+        restore_llm_gpt_case_list_auto_func
+    else
+        echo -e "\033[31m ---- Invalid exec_case $2 \033[0m"
+    fi
+elif [[ $status = "exec_case" ]];then
+    export FLAGS_install_deps=$3
+    export FLAGS_download_data=$4
+    $2
 else
-    echo -e "\033[31m ---- Invalid exec_case $exec_case \033[0m"
+    echo -e "\033[31m ---- Invalid status $status \033[0m"
+    export exec_case=$1
+    export FLAGS_install_deps=$2
+    export FLAGS_download_data=$3
+    if [[ $status =~ "gpt" ]];then
+        cd ${gpt_case_path}
+        before_hook_for_gpt
+    elif [[ $status =~ "llama" ]];then
+        cd ${llama_case_path}
+        before_hook_for_llama
+    else
+        echo -e "\033[31m ---- Invalid exec_case $exec_case \033[0m"
+    fi
+    $1
 fi
-
-$1
